@@ -83,28 +83,15 @@
 	if(!reagents)
 		create_reagents(max_rounds)
 
-	var/datum/reagent/to_add = O.reagents.reagent_list[1]
+	for(var/datum/reagent/R in O.reagents.reagent_list)
+		if (!R.intensityfire)
+			to_chat(user, SPAN_WARNING("This mixture is not useable in a flamethrower!"))
+			return
 
-	if(!istype(to_add) || (length(reagents.reagent_list) && flamer_chem != to_add.id) || length(O.reagents.reagent_list) > 1)
-		to_chat(user, SPAN_WARNING("You can't mix fuel mixtures!"))
-		return
+	var/trans = O.reagents.trans_to(src, max_rounds)
 
-	if(!to_add.intensityfire)
-		to_chat(user, SPAN_WARNING("This chemical is not potent enough to be used in a flamethrower!"))
-		return
-
-	var/fuel_amt_to_remove = Clamp(to_add.volume, 0, max_rounds - reagents.get_reagent_amount(to_add.id))
-	if(!fuel_amt_to_remove)
-		to_chat(user, SPAN_WARNING("[O] is empty!"))
-		return
-
-	O.reagents.remove_reagent(to_add.id, fuel_amt_to_remove)
-	reagents.add_reagent(to_add.id, fuel_amt_to_remove)
 	playsound(loc, 'sound/effects/refill.ogg', 25, 1, 3)
-	caliber = to_add.name
-	flamer_chem = to_add.id
-
-	to_chat(user, SPAN_NOTICE("You refill [src] with [caliber]."))
+	to_chat(user, SPAN_NOTICE("You fill [src] with [trans] units of the contents of [target]."))
 	update_icon()
 
 /obj/item/ammo_magazine/flamer_tank/update_icon()
