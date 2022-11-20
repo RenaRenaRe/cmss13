@@ -198,14 +198,33 @@
 	if(!current_mag || !current_mag.reagents || !current_mag.reagents.reagent_list.len)
 		return
 
-	var/datum/reagent/R = current_mag.reagents.reagent_list[1]
+	var/flameshape = current_mag.reagents.reagent_list[1].flameshape
+	var/fire_type = current_mag.reagents.reagent_list[1].fire_type
+	var/burn_sprite = current_mag.reagents.reagent_list[1].burn_sprite
+	var/intensity = 0
+	var/duration = 0
+	var/range = 0
+	var/firepen_volume = 0
 
-	var/flameshape = R.flameshape
-	var/fire_type = R.fire_type
+	for(var/datum/reagent/R in current_mag.reagents.reagent_list)
+		if (R.flameshape != flameshape) flameshape = FLAMESHAPE_LINE
+		if (R.fire_type != fire_type) fire_type = FIRE_VARIANT_DEFAULT
+		if (R.burn_sprite != burn_sprite) burn_sprite = "dynamic"
+		intensity += R.intensityfire * R.volume
+		duration += R.durationfire * R.volume
+		range += R.rangefire * R.volume
+		if (R.fire_penetrating) firepen_volume += R.volume
 
-	R.intensityfire = Clamp(R.intensityfire, current_mag.reagents.min_fire_int, current_mag.reagents.max_fire_int)
-	R.durationfire = Clamp(R.durationfire, current_mag.reagents.min_fire_dur, current_mag.reagents.max_fire_dur)
-	R.rangefire = Clamp(R.rangefire, current_mag.reagents.min_fire_rad, current_mag.reagents.max_fire_rad)
+	//We create a custom reagent with stats proportionally mixed from the input reagents, similar to chemical fires
+	var/datum/reagent/R = new()
+	R.volume = current_mag.reagents.total_volume
+	R.burn_sprite = burn_sprite
+	R.burncolor = mix_burn_colors(current_mag.reagents.reagent_list)
+	R.intensityfire = round(Clamp(intensity/current_mag.reagents.total_volume, current_mag.reagents.min_fire_int, current_mag.reagents.max_fire_int))
+	R.durationfire = round(Clamp(duration/current_mag.reagents.total_volume, current_mag.reagents.min_fire_dur, current_mag.reagents.max_fire_dur))
+	R.rangefire = round(Clamp(range/current_mag.reagents.total_volume, current_mag.reagents.min_fire_rad, current_mag.reagents.max_fire_rad))
+	if (firepen_volume >= current_mag.reagents.total_volume*0.5) //Fire penetration only activates if it's 50% or more of the mixture
+		R.fire_penetrating = TRUE
 	var/max_range = R.rangefire
 	if (max_range < fuel_pressure) //Used for custom tanks, allows for higher ranges
 		max_range = Clamp(fuel_pressure, 0, current_mag.reagents.max_fire_rad)
@@ -453,10 +472,15 @@ GLOBAL_LIST_EMPTY(flamer_particles)
 	var/burn_dam = burnlevel*FIRE_DAMAGE_PER_LEVEL
 
 	if(tied_reagents && !tied_reagents.locked)
-		var/removed = tied_reagents.remove_reagent(tied_reagent.id, FLAME_REAGENT_USE_AMOUNT * fuel_pressure)
-		if(removed)
+		if (tied_reagents.total_volume<=0)
 			qdel(src)
 			return
+		var/part = FLAME_REAGENT_USE_AMOUNT * fuel_pressure / tied_reagents.total_volume
+		tied_reagent.volume -= FLAME_REAGENT_USE_AMOUNT * fuel_pressure
+		R.volume -= FLAME_REAGENT_USE_AMOUNT * fuel_pressure
+		for(var/datum/reagent/current_reagent in tied_reagents.reagent_list)
+			tied_reagents.remove_reagent(current_reagent.id, current_reagent.volume * part, safety = 1)
+			tied_reagents.update_total()
 
 	if(fire_spread_amount > 0)
 		var/datum/flameshape/FS = GLOB.flameshapes[flameshape]

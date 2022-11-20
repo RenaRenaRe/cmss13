@@ -242,6 +242,7 @@ GLOBAL_LIST_INIT(name2reagent, build_name2reagent())
 	radiusmod = C.radiusmod
 	durationmod = C.durationmod
 	intensitymod = C.intensitymod
+	burn_sprite = C.burn_sprite
 	burncolor = C.burncolor
 	durationfire = C.durationfire
 	intensityfire = C.intensityfire
